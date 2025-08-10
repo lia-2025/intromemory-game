@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>イントロ神経衰弱</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: white;
+            color: black;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 0;
+            font-size: 18px;
+        }
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(8, 90px);
+            grid-template-rows: repeat(8, 90px);
+            justify-content: center;
+            margin-top: 20px;
+            gap: 0;
+        }
+        .card {
+            width: 90px;
+            height: 90px;
+            cursor: pointer;
+        }
+        #timer, #clearTime {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        #screenshotBtn {
+            margin-top: 10px;
+            font-size: 16px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>イントロ神経衰弱</h1>
+    <div id="game-board"></div>
+    <div id="timer">経過時間：0分0秒</div>
+    <div id="clearTime"></div>
+    <button id="screenshotBtn" style="display:none;">スクリーンショットを撮る</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        const backsideSrc = 'img/back.png?_=' + new Date().getTime();
+        const audioCardImage = 'img/audioCard.png?_=' + new Date().getTime();
+
+        let cardsData = [];
+        for (let i = 1; i <= 64; i++) {
+            cardsData.push({
+                label: '曲' + i,
+                src: 'audio/sample' + i + '.mp3?_=' + new Date().getTime(),
+                img: 'img/card' + i + '.png?_=' + new Date().getTime()
+            });
+        }
+
+        const selectedCards = cardsData.sort(() => 0.5 - Math.random()).slice(0, 32);
+        let gameCards = [];
+        selectedCards.forEach(card => {
+            gameCards.push({
+                type: 'audio',
+                label: card.label,
+                audio: card.src,
+                img: audioCardImage
+            });
+            gameCards.push({
+                type: 'image',
+                label: card.label,
+                img: card.img
+            });
+        });
+
+        gameCards = gameCards.sort(() => 0.5 - Math.random());
+
+        const board = document.getElementById('game-board');
+        let firstCard = null;
+        let lockBoard = false;
+        let matches = 0;
+        let startTime;
+        let timerInterval;
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('timer').textContent = `経過時間：${minutes}分${seconds}秒`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function createBoard() {
+            gameCards.forEach((card, index) => {
+                const cardElement = document.createElement('img');
+                cardElement.src = backsideSrc;
+                cardElement.classList.add('card');
+                cardElement.dataset.index = index;
+                cardElement.addEventListener('click', flipCard);
+                board.appendChild(cardElement);
+            });
+            startTimer();
+        }
+
+        function flipCard() {
+            if (lockBoard) return;
+            const index = this.dataset.index;
+            const card = gameCards[index];
+            if (this.src.includes(backsideSrc.split('?')[0])) {
+                this.src = card.img;
+                if (card.type === 'audio') {
+                    new Audio(card.audio).play();
+                }
+                if (!firstCard) {
+                    firstCard = { element: this, card: card };
+                } else {
+                    lockBoard = true;
+                    if (firstCard.card.label === card.label && firstCard.element !== this) {
+                        matches++;
+                        resetTurn();
+                        if (matches === selectedCards.length) {
+                            stopTimer();
+                            const elapsed = Date.now() - startTime;
+                            const minutes = Math.floor(elapsed / 60000);
+                            const seconds = Math.floor((elapsed % 60000) / 1000);
+                            document.getElementById('clearTime').textContent = `クリアタイム：${minutes}分${seconds}秒`;
+                            document.getElementById('screenshotBtn').style.display = 'inline-block';
+                        }
+                    } else {
+                        setTimeout(() => {
+                            firstCard.element.src = backsideSrc;
+                            this.src = backsideSrc;
+                            resetTurn();
+                        }, 1000);
+                    }
+                }
+            }
+        }
+
+        function resetTurn() {
+            firstCard = null;
+            lockBoard = false;
+        }
+
+        document.getElementById('screenshotBtn').addEventListener('click', () => {
+            html2canvas(document.body).then(canvas => {
+                const now = new Date();
+                const timestamp = now.getFullYear().toString() +
+                    String(now.getMonth() + 1).padStart(2, '0') +
+                    String(now.getDate()).padStart(2, '0') +
+                    String(now.getHours()).padStart(2, '0') +
+                    String(now.getMinutes()).padStart(2, '0');
+                const link = document.createElement('a');
+                link.download = `screenshot_${timestamp}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        });
+
+        createBoard();
+    </script>
+</body>
+</html>
